@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Configurable Billing Software</title>
+    <meta
+      name="description"
+      content="Config-driven billing software with a print-friendly GST invoice."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <section class="workspace">
+        <aside class="control-panel">
+          <div class="panel-header">
+            <p class="kicker">Billing Desk</p>
+            <h1 id="appTitle">Invoice Generator</h1>
+            <p id="appSubtitle"></p>
+          </div>
+
+          <div class="smart-summary">
+            <article class="summary-card">
+              <span>Items</span>
+              <strong id="summaryItems">0</strong>
+            </article>
+            <article class="summary-card">
+              <span>Taxable</span>
+              <strong id="summaryTaxable">INR 0.00</strong>
+            </article>
+            <article class="summary-card accent">
+              <span>Grand Total</span>
+              <strong id="summaryGrand">INR 0.00</strong>
+            </article>
+          </div>
+
+          <form id="invoiceForm" class="invoice-form">
+            <div class="form-block">
+              <div class="block-heading">
+                <h2>Invoice Details</h2>
+                <p>Only transaction data goes here. Static details stay in config.</p>
+              </div>
+              <div class="field-grid two-column">
+                <label>
+                  Invoice No.
+                  <input type="text" name="invoiceNo" />
+                </label>
+                <label>
+                  Invoice Date
+                  <input type="date" name="invoiceDate" />
+                </label>
+                <label>
+                  Place of Supply
+                  <input type="text" name="placeOfSupply" />
+                </label>
+                <label>
+                  Reverse Charge
+                  <input type="text" name="reverseCharge" />
+                </label>
+                <label>
+                  E-Way / Transport Note
+                  <input type="text" name="deliveryNote" />
+                </label>
+                <label>
+                  Vehicle / Dispatch
+                  <input type="text" name="dispatchInfo" />
+                </label>
+              </div>
+            </div>
+
+            <div class="form-block">
+              <div class="block-heading">
+                <h2>Customer</h2>
+                <p>Fill bill-to once, then copy it to ship-to if it is the same.</p>
+              </div>
+
+              <div class="field-grid two-column">
+                <label>
+                  Billed To Name
+                  <input type="text" name="billedToName" />
+                </label>
+                <label>
+                  Shipped To Name
+                  <input type="text" name="shippedToName" />
+                </label>
+                <label class="span-two">
+                  Billed To Address
+                  <textarea name="billedToAddress" rows="3"></textarea>
+                </label>
+                <label class="span-two">
+                  Shipped To Address
+                  <textarea name="shippedToAddress" rows="3"></textarea>
+                </label>
+                <label>
+                  Billed To GSTIN / UIN
+                  <input type="text" name="billedToGstin" />
+                </label>
+                <label>
+                  Shipped To GSTIN / UIN
+                  <input type="text" name="shippedToGstin" />
+                </label>
+              </div>
+
+              <label class="toggle-row" for="sameAsBilledCheckbox">
+                <input type="checkbox" id="sameAsBilledCheckbox" name="sameAsBilled" />
+                <span>Use billed-to details for shipped-to</span>
+              </label>
+            </div>
+
+            <div class="form-block">
+              <div class="block-heading products-heading">
+                <div>
+                  <h2>Products</h2>
+                  <p>Select from config. HSN and GST auto-fill.</p>
+                </div>
+                <button class="secondary-button" type="button" id="addItemButton">
+                  Add Item
+                </button>
+              </div>
+              <div id="itemsContainer" class="items-container"></div>
+            </div>
+
+            <div class="form-block">
+              <div class="block-heading">
+                <h2>Remarks</h2>
+                <p>Optional invoice-specific notes.</p>
+              </div>
+              <div class="field-grid">
+                <label>
+                  Declaration
+                  <textarea name="declarationText" rows="2"></textarea>
+                </label>
+                <label>
+                  Additional Remark
+                  <textarea name="remarkText" rows="2"></textarea>
+                </label>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <button class="secondary-button" type="button" id="resetShipButton">
+                Copy Bill To Ship To
+              </button>
+              <button class="primary-button" type="button" id="printButton">
+                Print Bill Only
+              </button>
+            </div>
+          </form>
+        </aside>
+
+        <main class="preview-panel">
+          <div class="preview-toolbar no-print">
+            <div>
+              <p class="toolbar-label">Print Preview</p>
+            </div>
+            <button class="primary-button" type="button" id="printButtonTop">
+              Print Bill Only
+            </button>
+          </div>
+
+          <div class="invoice-sheet" id="invoiceSheet">
+            <div class="invoice-micro-bar">
+              <span><strong>GSTIN :</strong> <span id="previewSellerGstinTop"></span></span>
+              <span class="copy-note" id="previewTopNotice"></span>
+              <span id="previewCopyType"></span>
+            </div>
+
+            <div class="invoice-heading">
+              <p id="previewInvoiceTitle"></p>
+              <h1 id="previewCompanyName"></h1>
+              <p id="previewCompanyAddress"></p>
+              <p id="previewCompanyContacts"></p>
+            </div>
+
+            <div class="meta-grid">
+              <div class="meta-cell">
+                <span>Invoice No.</span>
+                <strong id="previewInvoiceNo"></strong>
+              </div>
+              <div class="meta-cell">
+                <span>Dated</span>
+                <strong id="previewInvoiceDate"></strong>
+              </div>
+              <div class="meta-cell">
+                <span>Place of Supply</span>
+                <strong id="previewPlaceOfSupply"></strong>
+              </div>
+              <div class="meta-cell">
+                <span>Reverse Charge</span>
+                <strong id="previewReverseCharge"></strong>
+              </div>
+            </div>
+
+            <div class="party-layout">
+              <section class="party-card">
+                <p class="party-label">Billed To :</p>
+                <h2 id="previewBilledToName"></h2>
+                <p id="previewBilledToAddress"></p>
+                <p><strong>GSTIN / UIN :</strong> <span id="previewBilledToGstin"></span></p>
+              </section>
+
+              <section class="party-card">
+                <p class="party-label">Shipped To :</p>
+                <h2 id="previewShippedToName"></h2>
+                <p id="previewShippedToAddress"></p>
+                <p><strong>GSTIN / UIN :</strong> <span id="previewShippedToGstin"></span></p>
+              </section>
+            </div>
+
+            <div class="transport-strip">
+              <span><strong>E-Way / Transport Note :</strong> <span id="previewDeliveryNote"></span></span>
+              <span><strong>Vehicle / Dispatch :</strong> <span id="previewDispatchInfo"></span></span>
+            </div>
+
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th>S.N.</th>
+                  <th>Description of Goods</th>
+                  <th>HSN / SAC Code</th>
+                  <th>Qty.</th>
+                  <th>Unit</th>
+                  <th>List Price</th>
+                  <th>Discount</th>
+                  <th id="primaryRateHead">CGST Rate</th>
+                  <th id="primaryAmountHead">CGST Amount</th>
+                  <th id="secondaryRateHead">SGST Rate</th>
+                  <th id="secondaryAmountHead">SGST Amount</th>
+                  <th>Amount(₹)</th>
+                </tr>
+              </thead>
+              <tbody id="previewItemsBody"></tbody>
+              <tfoot>
+                <tr class="grand-total-row">
+                  <td colspan="3" class="text-right">Grand Total</td>
+                  <td id="previewTotalQty"></td>
+                  <td id="previewTotalUnit"></td>
+                  <td colspan="6"></td>
+                  <td id="previewGrandTaxable"></td>
+                </tr>
+              </tfoot>
+            </table>
+
+            <table class="tax-summary-table">
+              <thead>
+                <tr>
+                  <th>HSN/SAC</th>
+                  <th>Tax Rate</th>
+                  <th>Main Qty</th>
+                  <th>UQC</th>
+                  <th>Taxable Amt.</th>
+                  <th id="taxPrimaryTotalHead">CGST Amt.</th>
+                  <th id="taxSecondaryTotalHead">SGST Amt.</th>
+                  <th>Total Tax</th>
+                </tr>
+              </thead>
+              <tbody id="previewTaxBody"></tbody>
+            </table>
+
+            <div class="amount-words" id="previewAmountWords"></div>
+
+            <section class="declaration-band">
+              <h3>Declaration</h3>
+              <p id="previewDeclaration"></p>
+              <p id="previewRemark"></p>
+            </section>
+
+            <div class="bottom-grid">
+              <section class="bank-box">
+                <div class="bank-row">
+                  <strong>Bank Details :</strong>
+                  <span id="previewBankDetails"></span>
+                </div>
+                <div class="bank-row">
+                  <strong>IFSC CODE :</strong>
+                  <span id="previewBankIfsc"></span>
+                  <strong>A/c No.</strong>
+                  <span id="previewBankAccount"></span>
+                </div>
+                <div class="terms-block">
+                  <h4 id="previewTermsTitle"></h4>
+                  <ol id="previewTermsList"></ol>
+                </div>
+              </section>
+
+              <section class="signatures-box">
+                <div class="receipt-sign">
+                  <p id="previewReceiverLabel"></p>
+                  <div class="signature-space"></div>
+                </div>
+                <div class="auth-sign">
+                  <p id="previewCompanySignatureLine"></p>
+                  <div class="signature-space" id="previewSignatureText"></div>
+                  <p id="previewSignatureLabel"></p>
+                </div>
+              </section>
+            </div>
+          </div>
+        </main>
+      </section>
+    </div>
+
+    <script src="./billing-config.js"></script>
+    <script src="./script.js"></script>
+  </body>
+</html>
