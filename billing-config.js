@@ -27,9 +27,9 @@ window.BILLING_CONFIG = {
   },
   bank: {
     bankName: "HDFC Bank",
-    branch: "15 SEc Hisar",
-    ifsc: "SBIN0016138",
-    accountNumber: "40679969509"
+    branch: "15 Sec Hisar",
+    ifsc: "HDFC0007462",
+    accountNumber: "50200096448306"
   },
   compliance: {
     jurisdictionLine: "All dispute subject to Hisar jurisdiction only.",
@@ -37,10 +37,10 @@ window.BILLING_CONFIG = {
       "Guaranty / Warranty should be claim from company"
   },
   defaults: {
-    invoiceNo: "R2025-26/91",
+    invoiceNo: "R2026-27/number",
     invoiceDate: "2026-04-24",
-    placeOfSupply: "Haryana (06)",
-    reverseCharge: "N",
+    placeOfSupply: "Haryana",
+    reverseCharge: "NA",
     deliveryNote: "",
     dispatchInfo: "",
     billedToName: "",
@@ -59,6 +59,42 @@ window.BILLING_CONFIG = {
     "All dispute subject to Hisar jurisdiction only."
   ],
   products: [
+    {
+      id: "air-cooler",
+      name: "Air Cooler",
+      descriptionLines: [
+        ""
+      ],
+      hsn: "84796000",
+      unit: "Pcs.",
+      gstPercent: 18,
+      defaultRate: 10500,
+      defaultDiscount: 0
+    },
+    {
+      id: "stand",
+      name: "Cooler Stand",
+      descriptionLines: [
+        ""
+      ],
+      hsn: "73089090",
+      unit: "Pcs.",
+      gstPercent: 18,
+      defaultRate: 800,
+      defaultDiscount: 0
+    },
+    {
+      id: "almirah",
+      name: "Almirah",
+      descriptionLines: [
+        ""
+      ],
+      hsn: "8479",
+      unit: "Pcs.",
+      gstPercent: 18,
+      defaultRate: 10500,
+      defaultDiscount: 0
+    },
     {
       id: "tomashi-cooler-tr",
       name: "Tomashti Cooler",

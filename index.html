@@ -118,11 +118,16 @@
               <div class="block-heading products-heading">
                 <div>
                   <h2>Products</h2>
-                  <p>Select from config. HSN and GST auto-fill.</p>
+                  <p>Pick from catalog or create a one-off product with full details.</p>
                 </div>
-                <button class="secondary-button" type="button" id="addItemButton">
-                  Add Item
-                </button>
+                <div class="product-actions">
+                  <button class="secondary-button" type="button" id="addItemButton">
+                    Add Catalog Item
+                  </button>
+                  <button class="secondary-button" type="button" id="addCustomItemButton">
+                    Add Custom Product
+                  </button>
+                </div>
               </div>
               <div id="itemsContainer" class="items-container"></div>
             </div>
@@ -227,7 +232,7 @@
                   <th>HSN / SAC Code</th>
                   <th>Qty.</th>
                   <th>Unit</th>
-                  <th>List Price</th>
+                  <th>Price</th>
                   <th>Discount</th>
                   <th id="primaryRateHead">CGST Rate</th>
                   <th id="primaryAmountHead">CGST Amount</th>

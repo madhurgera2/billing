@@ -3,6 +3,7 @@ const config = window.BILLING_CONFIG;
 const form = document.getElementById("invoiceForm");
 const itemsContainer = document.getElementById("itemsContainer");
 const addItemButton = document.getElementById("addItemButton");
+const addCustomItemButton = document.getElementById("addCustomItemButton");
 const printButton = document.getElementById("printButton");
 const printButtonTop = document.getElementById("printButtonTop");
 const resetShipButton = document.getElementById("resetShipButton");
@@ -62,6 +63,16 @@ const state = {
   items: []
 };
 
+function createCustomProductSeed() {
+  return {
+    name: "",
+    hsn: "",
+    unit: config.invoice.quantityUnitLabel,
+    gstPercent: 18,
+    descriptionText: ""
+  };
+}
+
 function setFormValue(name, value) {
   const field = form.elements.namedItem(name);
 
@@ -74,8 +85,37 @@ function setFormValue(name, value) {
   }
 }
 
+function getTodayInputValue() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function getProductById(productId) {
   return config.products.find((product) => product.id === productId) || config.products[0];
+}
+
+function getResolvedProduct(item) {
+  if (item.mode === "custom") {
+    const custom = item.customProduct || createCustomProductSeed();
+    const descriptionLines = String(custom.descriptionText || "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    return {
+      id: item.productId || `custom-${item.id || "item"}`,
+      name: custom.name || "Custom Product",
+      hsn: custom.hsn || "-",
+      unit: custom.unit || config.invoice.quantityUnitLabel,
+      gstPercent: Number(custom.gstPercent) || 0,
+      descriptionLines
+    };
+  }
+
+  return getProductById(item.productId);
 }
 
 function createProductOptions(selectedProductId) {
@@ -106,6 +146,15 @@ function formatPercent(value) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   })}%`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function formatDateForDisplay(dateInput) {
@@ -208,40 +257,78 @@ function setMultilineText(node, value) {
   node.innerHTML = String(value || "").replaceAll("\n", "<br />");
 }
 
-function createNewItem() {
+function createNewItem(mode = "catalog") {
   const firstProduct = config.products[0];
 
+  if (mode === "custom") {
+    return {
+      mode: "custom",
+      productId: "",
+      quantity: 1,
+      rate: 0,
+      discount: 0,
+      customProduct: {
+        ...createCustomProductSeed()
+      }
+    };
+  }
+
   return {
+    mode: "catalog",
     productId: firstProduct.id,
     quantity: 1,
     rate: firstProduct.defaultRate,
-    discount: firstProduct.defaultDiscount || 0
+    discount: firstProduct.defaultDiscount || 0,
+    customProduct: {
+      ...createCustomProductSeed()
+    }
   };
 }
 
 function getItemCardMarkup(item, index) {
-  const product = getProductById(item.productId);
-  const details = (product.descriptionLines || []).join(" | ");
+  const product = getResolvedProduct(item);
+  const isCustomMode = item.mode === "custom";
+  const details = escapeHtml((product.descriptionLines || []).join(" | "));
 
   return `
-    <article class="item-card" data-item-index="${index}">
+    <article class="item-card ${isCustomMode ? "custom-mode" : ""}" data-item-index="${index}">
       <div class="item-card-header">
-        <h3>Item ${index + 1}</h3>
-        <button type="button" class="danger-button remove-item-button">Remove</button>
+        <div class="item-card-meta">
+          <h3>Item ${index + 1}</h3>
+          <span class="mode-badge">${isCustomMode ? "Custom Product" : "Catalog Product"}</span>
+        </div>
+        <div class="item-card-meta">
+          <div class="mode-switch">
+            <button type="button" class="mode-chip ${!isCustomMode ? "active" : ""}" data-mode="catalog">From Catalog</button>
+            <button type="button" class="mode-chip ${isCustomMode ? "active" : ""}" data-mode="custom">Custom Product</button>
+          </div>
+          <button type="button" class="danger-button remove-item-button">Remove</button>
+        </div>
       </div>
       <div class="item-grid">
-        <label>
-          Product
-          <select class="item-product-select">
-            ${createProductOptions(product.id)}
-          </select>
-        </label>
+        ${
+          isCustomMode
+            ? `
+              <div class="readonly-chip">
+                <strong>Custom Product</strong>
+                <small>This item uses the product details entered below instead of the catalog.</small>
+              </div>
+            `
+            : `
+              <label>
+                Product
+                <select class="item-product-select">
+                  ${createProductOptions(product.id)}
+                </select>
+              </label>
+            `
+        }
         <label>
           Quantity
           <input class="item-quantity-input" type="number" min="0" step="0.01" value="${item.quantity}" />
         </label>
         <label>
-          List Price
+          Final Price
           <input class="item-rate-input" type="number" min="0" step="0.01" value="${item.rate}" />
         </label>
         <label>
@@ -254,17 +341,46 @@ function getItemCardMarkup(item, index) {
         </div>
         <div class="readonly-chip">
           <strong>HSN / SAC</strong>
-          <span>${product.hsn}</span>
+          <span>${escapeHtml(product.hsn)}</span>
         </div>
         <div class="readonly-chip">
           <strong>Unit</strong>
-          <span>${product.unit || config.invoice.quantityUnitLabel}</span>
+          <span>${escapeHtml(product.unit || config.invoice.quantityUnitLabel)}</span>
         </div>
         <div class="readonly-chip">
           <strong>Description</strong>
-          <small>${details || product.name}</small>
+          <small>${details || escapeHtml(product.name)}</small>
         </div>
       </div>
+      ${
+        isCustomMode
+          ? `
+            <div class="custom-product-grid">
+              <label>
+                Product Name
+                <input class="custom-name-input" type="text" value="${escapeHtml(item.customProduct?.name || "")}" placeholder="Enter custom product name" />
+              </label>
+              <label>
+                HSN / SAC
+                <input class="custom-hsn-input" type="text" value="${escapeHtml(item.customProduct?.hsn || "")}" placeholder="Enter HSN code" />
+              </label>
+              <label>
+                Unit
+                <input class="custom-unit-input" type="text" value="${escapeHtml(item.customProduct?.unit || config.invoice.quantityUnitLabel)}" placeholder="Pcs." />
+              </label>
+              <label>
+                GST Percent
+                <input class="custom-gst-input" type="number" min="0" step="0.01" value="${item.customProduct?.gstPercent ?? 18}" />
+              </label>
+              <label class="span-two">
+                Product Description
+                <textarea class="custom-description-input" rows="3" placeholder="One detail per line">${escapeHtml(item.customProduct?.descriptionText || "")}</textarea>
+              </label>
+              <p class="custom-product-note span-two">The custom product details entered here are used directly in the rendered bill and tax calculation.</p>
+            </div>
+          `
+          : ""
+      }
     </article>
   `;
 }
@@ -283,14 +399,59 @@ function syncItemEvents() {
     const rateInput = card.querySelector(".item-rate-input");
     const discountInput = card.querySelector(".item-discount-input");
     const removeButton = card.querySelector(".remove-item-button");
+    const modeButtons = card.querySelectorAll(".mode-chip");
+    const customNameInput = card.querySelector(".custom-name-input");
+    const customHsnInput = card.querySelector(".custom-hsn-input");
+    const customUnitInput = card.querySelector(".custom-unit-input");
+    const customGstInput = card.querySelector(".custom-gst-input");
+    const customDescriptionInput = card.querySelector(".custom-description-input");
 
-    productSelect.addEventListener("change", (event) => {
-      const product = getProductById(event.target.value);
-      state.items[index].productId = product.id;
-      state.items[index].rate = product.defaultRate;
-      state.items[index].discount = product.defaultDiscount || 0;
-      renderAll();
+    modeButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const targetMode = button.dataset.mode;
+        const currentItem = state.items[index];
+
+        if (currentItem.mode === targetMode) {
+          return;
+        }
+
+        if (targetMode === "custom") {
+          state.items[index] = {
+            ...currentItem,
+            mode: "custom",
+            customProduct: {
+              ...(currentItem.customProduct || createCustomProductSeed()),
+              name: currentItem.customProduct?.name || "",
+              hsn: currentItem.customProduct?.hsn || "",
+              unit: currentItem.customProduct?.unit || config.invoice.quantityUnitLabel,
+              gstPercent: currentItem.customProduct?.gstPercent ?? 18,
+              descriptionText: currentItem.customProduct?.descriptionText || ""
+            }
+          };
+        } else {
+          const fallbackProduct = getProductById(currentItem.productId || config.products[0].id);
+          state.items[index] = {
+            ...currentItem,
+            mode: "catalog",
+            productId: fallbackProduct.id,
+            rate: currentItem.rate || fallbackProduct.defaultRate,
+            discount: currentItem.discount || fallbackProduct.defaultDiscount || 0
+          };
+        }
+
+        renderAll();
+      });
     });
+
+    if (productSelect) {
+      productSelect.addEventListener("change", (event) => {
+        const product = getProductById(event.target.value);
+        state.items[index].productId = product.id;
+        state.items[index].rate = product.defaultRate;
+        state.items[index].discount = product.defaultDiscount || 0;
+        renderAll();
+      });
+    }
 
     quantityInput.addEventListener("input", (event) => {
       state.items[index].quantity = Number(event.target.value) || 0;
@@ -306,6 +467,41 @@ function syncItemEvents() {
       state.items[index].discount = Number(event.target.value) || 0;
       updatePreview();
     });
+
+    if (customNameInput) {
+      customNameInput.addEventListener("input", (event) => {
+        state.items[index].customProduct.name = event.target.value;
+        updatePreview();
+      });
+    }
+
+    if (customHsnInput) {
+      customHsnInput.addEventListener("input", (event) => {
+        state.items[index].customProduct.hsn = event.target.value;
+        updatePreview();
+      });
+    }
+
+    if (customUnitInput) {
+      customUnitInput.addEventListener("input", (event) => {
+        state.items[index].customProduct.unit = event.target.value;
+        updatePreview();
+      });
+    }
+
+    if (customGstInput) {
+      customGstInput.addEventListener("input", (event) => {
+        state.items[index].customProduct.gstPercent = Number(event.target.value) || 0;
+        updatePreview();
+      });
+    }
+
+    if (customDescriptionInput) {
+      customDescriptionInput.addEventListener("input", (event) => {
+        state.items[index].customProduct.descriptionText = event.target.value;
+        updatePreview();
+      });
+    }
 
     removeButton.addEventListener("click", () => {
       state.items.splice(index, 1);
@@ -323,6 +519,8 @@ function populateFormDefaults() {
   Object.entries(config.defaults).forEach(([key, value]) => {
     setFormValue(key, value);
   });
+
+  setFormValue("invoiceDate", getTodayInputValue());
 }
 
 function syncShipToFromBillTo() {
@@ -371,15 +569,16 @@ function computeInvoiceData(formData) {
   const taxMode = isIntraState ? "split" : "integrated";
 
   const items = state.items.map((item, index) => {
-    const product = getProductById(item.productId);
+    const product = getResolvedProduct(item);
     const quantity = Number(item.quantity) || 0;
     const unit = product.unit || config.invoice.quantityUnitLabel;
     const rate = Number(item.rate) || 0;
     const grossAmount = quantity * rate;
     const discount = Math.min(Number(item.discount) || 0, grossAmount);
-    const taxableAmount = grossAmount - discount;
+    const finalAmount = grossAmount - discount;
     const gstPercent = Number(product.gstPercent) || 0;
-    const totalTax = (taxableAmount * gstPercent) / 100;
+    const taxableAmount = gstPercent ? finalAmount / (1 + gstPercent / 100) : finalAmount;
+    const totalTax = finalAmount - taxableAmount;
     const primaryRate = taxMode === "split" ? gstPercent / 2 : gstPercent;
     const secondaryRate = taxMode === "split" ? gstPercent / 2 : 0;
     const primaryTaxAmount = taxMode === "split" ? totalTax / 2 : totalTax;
@@ -394,6 +593,7 @@ function computeInvoiceData(formData) {
       quantity,
       rate,
       discount,
+      finalAmount,
       taxableAmount,
       gstPercent,
       primaryRate,
@@ -409,7 +609,7 @@ function computeInvoiceData(formData) {
   const primaryTaxTotal = items.reduce((sum, item) => sum + item.primaryTaxAmount, 0);
   const secondaryTaxTotal = items.reduce((sum, item) => sum + item.secondaryTaxAmount, 0);
   const grandTax = primaryTaxTotal + secondaryTaxTotal;
-  const grandTotal = taxableTotal + grandTax;
+  const grandTotal = items.reduce((sum, item) => sum + item.finalAmount, 0);
   const unitLabel = items[0]?.unit || config.invoice.quantityUnitLabel;
 
   const taxBreakdown = items.reduce((map, item) => {
@@ -519,7 +719,7 @@ function updatePreview() {
           <td>${formatCurrency(item.primaryTaxAmount)}</td>
           <td>${secondaryLabel ? formatPercent(item.secondaryRate) : ""}</td>
           <td>${secondaryLabel ? formatCurrency(item.secondaryTaxAmount) : ""}</td>
-          <td>${formatCurrency(item.taxableAmount)}</td>
+          <td>${formatCurrency(item.finalAmount)}</td>
         </tr>
       `;
     })
@@ -574,10 +774,16 @@ function renderAll() {
 
 function initState() {
   state.items = config.initialItems.map((item) => ({
+    mode: item.mode || "catalog",
     productId: item.productId,
     quantity: item.quantity,
     rate: item.rate,
-    discount: item.discount || 0
+    discount: item.discount || 0,
+    customProduct: {
+      ...createCustomProductSeed(),
+      descriptionText: "",
+      ...(item.customProduct || {})
+    }
   }));
 
   if (!state.items.length) {
@@ -591,7 +797,12 @@ function printInvoice() {
 
 function attachEvents() {
   addItemButton.addEventListener("click", () => {
-    state.items.push(createNewItem());
+    state.items.push(createNewItem("catalog"));
+    renderAll();
+  });
+
+  addCustomItemButton.addEventListener("click", () => {
+    state.items.push(createNewItem("custom"));
     renderAll();
   });
 
